@@ -61,7 +61,8 @@ const statusMap: Record<string, { label: string, color: string, icon: any }> = {
 };
 
 export default function OrdersPage() {
-  const { data, loading, refetch } = useQuery(ORDERS_QUERY);
+  const { data: rawData, loading, refetch } = useQuery(ORDERS_QUERY);
+  const data = rawData as any;
   const [updateStatus, { loading: isUpdating }] = useMutation(UPDATE_ORDER_STATUS);
 
   const [searchTerm, setSearchTerm] = useState('');

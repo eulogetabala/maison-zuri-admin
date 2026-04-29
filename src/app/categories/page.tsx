@@ -57,7 +57,8 @@ const UPDATE_CATEGORY = gql`
 `;
 
 export default function CategoriesPage() {
-  const { data, loading, refetch } = useQuery(CATEGORIES_QUERY);
+  const { data: rawData, loading, refetch } = useQuery(CATEGORIES_QUERY);
+  const data = rawData as any;
   const [deleteCategory] = useMutation(DELETE_CATEGORY);
   const [createCategory, { loading: isCreating }] = useMutation(CREATE_CATEGORY);
   const [updateCategory, { loading: isUpdating }] = useMutation(UPDATE_CATEGORY);
