@@ -27,7 +27,7 @@ export default function LoginPage() {
   const router = useRouter();
 
   const [login, { loading }] = useMutation(LOGIN_MUTATION, {
-    onCompleted: (data) => {
+    onCompleted: (data: any) => {
       Cookies.set('admin_token', data.loginAdmin.token, { expires: 1 }); // 24h
       router.push('/dashboard');
     },
