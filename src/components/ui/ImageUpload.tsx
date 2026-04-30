@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { UploadCloud, Loader2, Image as ImageIcon, X } from 'lucide-react';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import Image from 'next/image';
 
 interface ImageUploadProps {
@@ -25,36 +23,52 @@ export default function ImageUpload({ value, onChange, folder = 'uploads' }: Ima
       return;
     }
 
+    const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+    const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+    const apiKey = process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY;
+
+    if (!cloudName || !uploadPreset) {
+      alert('Cloudinary non configuré. Vérifiez vos variables d\'environnement.');
+      return;
+    }
+
     try {
       setIsUploading(true);
-      const fileExtension = file.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExtension}`;
-      const storageRef = ref(storage, `${folder}/${fileName}`);
-      
-      const uploadTask = uploadBytesResumable(storageRef, file);
+      setProgress(10); // Simulation de début d'upload
 
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setProgress(p);
-        },
-        (error) => {
-          console.error('Erreur Firebase Upload:', error);
-          alert('Erreur lors du téléchargement. Vérifiez les permissions Firebase.');
-          setIsUploading(false);
-        },
-        async () => {
-          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-          onChange(downloadURL);
-          setIsUploading(false);
-          setProgress(0);
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('upload_preset', uploadPreset);
+      formData.append('folder', folder);
+      if (apiKey) {
+        formData.append('api_key', apiKey);
+      }
+
+      const response = await fetch(
+        `https://api.cloudinary.com/v1_1/${cloudName}/upload`,
+        {
+          method: 'POST',
+          body: formData,
         }
       );
-    } catch (err) {
-      console.error(err);
-      alert('Erreur technique lors du téléchargement.');
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Erreur lors de l\'upload');
+      }
+
+      const data = await response.json();
+      setProgress(100);
+      onChange(data.secure_url);
       setIsUploading(false);
+      
+      // Reset progress après un court délai
+      setTimeout(() => setProgress(0), 1000);
+    } catch (err: any) {
+      console.error('Erreur Cloudinary Upload:', err);
+      alert(`Erreur lors du téléchargement : ${err.message}`);
+      setIsUploading(false);
+      setProgress(0);
     }
   };
 

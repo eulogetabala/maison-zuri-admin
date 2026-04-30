@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Firebase secrets
+burger-house-4a1fd-firebase-adminsdk-sp69x-e196726d1b.json

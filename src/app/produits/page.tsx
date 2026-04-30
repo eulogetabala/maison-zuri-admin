@@ -20,8 +20,7 @@ import {
 } from 'lucide-react';
 import { formatPrice, cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 const PRODUCTS_QUERY = gql`
   query GetProducts {
@@ -67,6 +66,8 @@ const UPDATE_PRODUCT = gql`
 export default function ProduitsPage() {
   const { data: rawData, loading, refetch } = useQuery(PRODUCTS_QUERY);
   const data = rawData as any;
+  
+  console.log('ProduitsPage Data:', data);
 
   const [deleteProduct, { loading: isDeleting }] = useMutation(DELETE_PRODUCT);
   const [createProduct, { loading: isCreating }] = useMutation(CREATE_PRODUCT);
@@ -83,31 +84,7 @@ export default function ProduitsPage() {
     category: '',
     image: '',
   });
-  const [isUploading, setIsUploading] = useState(false);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Aperçu local immédiat
-    const previewUrl = URL.createObjectURL(file);
-    setImagePreview(previewUrl);
-
-    try {
-      setIsUploading(true);
-      const storageRef = ref(storage, `products/${Date.now()}_${file.name}`);
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      
-      setFormData(prev => ({ ...prev, image: downloadURL }));
-    } catch (error) {
-      console.error("Erreur d'upload :", error);
-      alert("Erreur lors du téléchargement de l'image vers Cloud Storage.");
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const filteredProducts = data?.products?.filter((p: any) => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -130,14 +107,12 @@ export default function ProduitsPage() {
       category: product.category || '',
       image: product.image || '',
     });
-    setImagePreview(product.image || null);
     setIsModalOpen(true);
   };
   
   const openCreateModal = () => {
     setEditingId(null);
     setFormData({ name: '', price: '', description: '', category: '', image: '' });
-    setImagePreview(null);
     setIsModalOpen(true);
   };
 
@@ -164,7 +139,6 @@ export default function ProduitsPage() {
       
       setIsModalOpen(false);
       setFormData({ name: '', price: '', description: '', category: '', image: '' });
-      setImagePreview(null);
       setEditingId(null);
       refetch();
     } catch (err) {
@@ -188,7 +162,7 @@ export default function ProduitsPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-10 border-b border-gray-50">
           <div>
-            <h1 className="text-4xl font-serif mb-2">Gestion des Produits</h1>
+            <h1 className="text-4xl font-serif mb-2">Gestion des Produits (V2)</h1>
             <p className="text-luxury-black/40 text-[10px] uppercase tracking-[0.3em] font-bold">
               Consultez et modifiez votre catalogue d&apos;articles
             </p>
@@ -369,40 +343,11 @@ export default function ProduitsPage() {
                 <div className="space-y-3">
                   <label className="text-[10px] uppercase tracking-widest font-black text-luxury-black/60">Image du produit</label>
                   
-                  <div className="relative border-2 border-dashed border-gray-200 rounded-lg p-6 hover:border-luxury-gold transition-colors flex flex-col items-center justify-center gap-4 bg-luxury-gray/10">
-                    <input 
-                      required={!formData.image}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      disabled={isUploading}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
-                    />
-                    
-                    {imagePreview || formData.image ? (
-                      <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-100 shadow-sm">
-                        <img src={imagePreview || getImageUrl(formData.image) || ''} alt="Preview" className="w-full h-full object-cover" />
-                        {isUploading && (
-                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-sm">
-                            <Loader2 className="w-6 h-6 animate-spin text-white" />
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center text-luxury-black/30">
-                        {isUploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <UploadCloud className="w-6 h-6" />}
-                      </div>
-                    )}
-
-                    <div className="text-center">
-                      <p className="text-xs font-bold text-luxury-black mb-1">
-                        {isUploading ? 'Téléchargement en cours...' : 'Cliquez ou glissez une image'}
-                      </p>
-                      <p className="text-[9px] uppercase tracking-widest text-luxury-black/40">
-                        SVG, PNG, JPG ou GIF (max. 5MB)
-                      </p>
-                    </div>
-                  </div>
+                  <ImageUpload 
+                    value={formData.image}
+                    onChange={(url) => setFormData(prev => ({ ...prev, image: url }))}
+                    folder="products"
+                  />
                 </div>
 
                 <div className="space-y-3">
@@ -417,7 +362,7 @@ export default function ProduitsPage() {
 
                 <button 
                   type="submit"
-                  disabled={isCreating || isUpdating || isUploading}
+                  disabled={isCreating || isUpdating}
                   className="w-full bg-luxury-black text-white py-6 text-[10px] uppercase tracking-[0.4em] font-black hover:bg-luxury-gold transition-all duration-500 shadow-xl flex items-center justify-center gap-3 disabled:opacity-50"
                 >
                   {(isCreating || isUpdating) ? (
