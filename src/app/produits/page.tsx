@@ -21,6 +21,8 @@ import {
 import { formatPrice, cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import ImageUpload from '@/components/ui/ImageUpload';
+import ZuriGallery from '@/components/ui/ZuriGallery';
+import VideoUpload from '@/components/ui/VideoUpload';
 
 const PRODUCTS_QUERY = gql`
   query GetProducts {
@@ -31,6 +33,9 @@ const PRODUCTS_QUERY = gql`
       description
       category
       image
+      discountPrice
+      gallery
+      video
     }
     categories {
       id
@@ -83,6 +88,9 @@ export default function ProduitsPage() {
     description: '',
     category: '',
     image: '',
+    discountPrice: '',
+    gallery: [] as string[],
+    video: '',
   });
 
 
@@ -106,13 +114,16 @@ export default function ProduitsPage() {
       description: product.description || '',
       category: product.category || '',
       image: product.image || '',
+      discountPrice: product.discountPrice ? product.discountPrice.toString() : '',
+      gallery: product.gallery || [],
+      video: product.video || '',
     });
     setIsModalOpen(true);
   };
   
   const openCreateModal = () => {
     setEditingId(null);
-    setFormData({ name: '', price: '', description: '', category: '', image: '' });
+    setFormData({ name: '', price: '', description: '', category: '', image: '', discountPrice: '', gallery: [], video: '' });
     setIsModalOpen(true);
   };
 
@@ -125,6 +136,9 @@ export default function ProduitsPage() {
         description: formData.description,
         category: formData.category,
         image: formData.image,
+        discountPrice: formData.discountPrice ? parseFloat(formData.discountPrice) : null,
+        gallery: formData.gallery,
+        video: formData.video,
       };
 
       if (editingId) {
@@ -138,7 +152,7 @@ export default function ProduitsPage() {
       }
       
       setIsModalOpen(false);
-      setFormData({ name: '', price: '', description: '', category: '', image: '' });
+      setFormData({ name: '', price: '', description: '', category: '', image: '', discountPrice: '', gallery: [], video: '' });
       setEditingId(null);
       refetch();
     } catch (err) {
@@ -244,7 +258,16 @@ export default function ProduitsPage() {
                     </span>
                   </td>
                   <td className="px-8 py-6">
-                    <span className="text-sm font-bold text-luxury-gold">{formatPrice(product.price)}</span>
+                    <div className="flex flex-col">
+                      <span className={cn("text-sm font-bold", product.discountPrice ? "text-red-500" : "text-luxury-gold")}>
+                        {formatPrice(product.discountPrice || product.price)}
+                      </span>
+                      {product.discountPrice && (
+                        <span className="text-[10px] text-luxury-black/30 line-through">
+                          {formatPrice(product.price)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-8 py-6 text-right">
                     <div className="flex items-center justify-end gap-3">
@@ -288,21 +311,22 @@ export default function ProduitsPage() {
               initial={{ scale: 0.95, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0, y: 20 }}
-              className="relative bg-white max-w-2xl w-full p-10 md:p-12 shadow-2xl rounded-lg"
+              className="relative bg-white max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl rounded-lg overflow-hidden"
             >
               <button 
                 onClick={() => setIsModalOpen(false)}
-                className="absolute top-6 right-6 p-2 hover:bg-luxury-gray rounded-full transition-colors"
+                className="absolute top-6 right-6 p-2 hover:bg-luxury-gray rounded-full transition-colors z-50 bg-white/80 backdrop-blur-sm shadow-sm"
               >
                 <X className="w-5 h-5" />
               </button>
 
-              <h2 className="text-3xl font-serif mb-10 pb-4 border-b border-gray-50">
-                {editingId ? 'Modifier le Produit' : 'Nouveau Produit'}
-              </h2>
+              <div className="overflow-y-auto p-10 md:p-12">
+                <h2 className="text-3xl font-serif mb-10 pb-4 border-b border-gray-50">
+                  {editingId ? 'Modifier le Produit' : 'Nouveau Produit'}
+                </h2>
               
               <form onSubmit={handleSubmit} className="space-y-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                   <div className="space-y-3">
                     <label className="text-[10px] uppercase tracking-widest font-black text-luxury-black/60">Nom de l&apos;article</label>
                     <input 
@@ -314,13 +338,23 @@ export default function ProduitsPage() {
                     />
                   </div>
                   <div className="space-y-3">
-                    <label className="text-[10px] uppercase tracking-widest font-black text-luxury-black/60">Prix (FCFA)</label>
+                    <label className="text-[10px] uppercase tracking-widest font-black text-luxury-black/60">Prix de base (FCFA)</label>
                     <input 
                       required
                       type="number"
                       className="w-full border-b border-gray-200 py-3 outline-none focus:border-luxury-gold transition-colors text-sm font-medium"
                       value={formData.price}
                       onChange={(e) => setFormData({...formData, price: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-[10px] uppercase tracking-widest font-black text-red-500/60">Prix Promo (Optionnel)</label>
+                    <input 
+                      type="number"
+                      className="w-full border-b border-gray-200 py-3 outline-none focus:border-red-500 transition-colors text-sm font-medium"
+                      value={formData.discountPrice}
+                      onChange={(e) => setFormData({...formData, discountPrice: e.target.value})}
+                      placeholder="Laisser vide"
                     />
                   </div>
                 </div>
@@ -342,11 +376,26 @@ export default function ProduitsPage() {
 
                 <div className="space-y-3">
                   <label className="text-[10px] uppercase tracking-widest font-black text-luxury-black/60">Image du produit</label>
-                  
                   <ImageUpload 
                     value={formData.image}
                     onChange={(url) => setFormData(prev => ({ ...prev, image: url }))}
                     folder="products"
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase tracking-widest font-black text-luxury-black/60">Galerie photos (Plusieurs images)</label>
+                  <ZuriGallery 
+                    value={formData.gallery}
+                    onChange={(urls) => setFormData(prev => ({ ...prev, gallery: urls }))}
+                  />
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] uppercase tracking-widest font-black text-luxury-black/60">Vidéo de présentation (Optionnel)</label>
+                  <VideoUpload 
+                    value={formData.video}
+                    onChange={(url) => setFormData(prev => ({ ...prev, video: url }))}
                   />
                 </div>
 
@@ -372,6 +421,7 @@ export default function ProduitsPage() {
                   )}
                 </button>
               </form>
+              </div>
             </motion.div>
           </div>
         )}
